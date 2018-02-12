@@ -1,5 +1,7 @@
 //LUIX JS ENGINE (c) 2018
 
+//TODO: rewrite this with classes
+
 //Init point of engine
 function start() {
 
@@ -7,6 +9,10 @@ function start() {
 	canvas = document.getElementById("c");
 	ctx = canvas.getContext("2d");
 	ctx.imageSmoothingEnabled = false;
+	
+	//screen size
+	canvas.width = 800;
+	canvas.height = 600;
 	
 	//framerates and deltas
 	ts = performance.now();
