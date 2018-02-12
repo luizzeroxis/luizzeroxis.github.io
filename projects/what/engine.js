@@ -2,8 +2,10 @@
 
 //TODO: rewrite this with classes
 
+sprites = [];
+
 //Init point of engine
-function start() {
+function start(callback) {
 
 	//graphics
 	canvas = document.getElementById("c");
@@ -34,13 +36,55 @@ function start() {
 	viewx = 0;
 	viewy = 0;
 	
+	//sprites
+	for(let i=0;i<sprites.length;i++) {
+		
+		let img = new Image();
+		img.addEventListener('load', function() {
+			sprites[i].state = 1; //loaded
+			
+			let loaded = 1;
+			for(let j=0;j<sprites.length;j++) {
+				if(sprites[j].state != 1) {
+					loaded = 0;
+					break;
+				}
+			}
+			
+			if(loaded) {
+				callback();
+			}
+			
+			console.log(this,"loaded!");
+		});
+		img.addEventListener('error', function() {
+			sprites[i].state = 2; //error
+			
+			console.log(this,"error!");
+		});
+		img.src = 'sprites/'+sprites[i].file;
+		
+		sprites[i].image = img;
+	}
+	
+	//[sprite1,sprite2={definition1=42,definition2=13,object{}}],sprite3]
+	
 	//gameplay
 	objects = [];
-	startSpawn();
 	
 	//start drawing
 	window.requestAnimationFrame(draw);
 	
+}
+
+function newSprite(file,ox,oy) {
+	sprites.push({
+		file: file,
+		state: 0, //not loaded
+		ox: ox,
+		oy: oy
+	});
+	return sprites[sprites.length-1];
 }
 
 //Alarm creation method
@@ -162,6 +206,23 @@ function Obj(x=0,y=0,depth=0) {
 }
 
 //{ Random functions
+
+function html(id) {
+	return document.getElementById(id);
+}
+
+function Rect(left,top,right,bottom) {
+	return {
+		left: left, top: top,
+		right: right, bottom: bottom
+	};
+}
+function drawRect(x,y,rect) {
+	ctx.rect(x+rect.left, y+rect.top, rect.right-rect.left, rect.bottom - rect.top);
+}
+function drawSprite(x,y,sprite) {
+	ctx.drawImage(sprite.image,x-sprite.ox,y-sprite.oy);
+}
 
 //}
 
