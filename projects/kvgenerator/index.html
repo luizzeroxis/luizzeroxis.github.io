@@ -1,0 +1,187 @@
+<!doctype html>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<style>
+	textarea {
+		width: 100%;
+		height: 420px;
+	}
+	#divCTs button, #divTRs button {
+		width: 96px;
+	}
+</style>
+
+<h1>CSGO .kv file generator</h1>
+
+<div class='field'>Name of the map: <input id='inputMapName' type=text /></div>
+<div class='field'>Name of the author: <input id='inputAuthorName' type=text /></div>
+
+<div class='field'>Counter-terrorists:</div>
+<div id='divCTs'></div>
+<div class='field'>Terrorists:</div>
+<div id='divTRs'></div>
+
+<div>
+	<textarea id='textareaKv' placeholder='File will appear here...' disabled></textarea>
+</div>
+
+<a class='field' id='aDownload' download> Download .kv file</a>
+
+<script>
+
+	$ = (q) => document.querySelector(q);
+
+	create = (tag, attributes, content) => {
+
+	}
+
+	makethingys = (list, parent, name) => {
+
+		for (var i = 0; i < list.length; i++) {
+			let ithis = list[i]; //holy fuck this is tha shit
+			ithis.butt = document.createElement('button');
+
+			ithis.butt.appendChild(document.createTextNode(ithis.name));
+			ithis.butt.addEventListener('click', () => {
+
+				selected[name] = ithis;
+
+				for (var j = 0; j < list.length; j++) {
+					list[j].butt.disabled = false;
+				}
+				ithis.butt.disabled = true;
+
+				updateKv();
+
+			});
+			parent.appendChild(ithis.butt);
+		}
+
+	}
+
+	$('#inputMapName').addEventListener('input', () => {
+		updateKv();
+	});
+	$('#inputAuthorName').addEventListener('input', () => {
+		updateKv();
+	});
+
+	updateKv = () => {
+
+		if (selected['ct'] &&  selected['tr']) {
+
+			var mapname = $('#inputMapName').value;
+			var authorname = $('#inputAuthorName').value;
+
+			var kv = `
+"`+mapname+`"
+{
+	"name" "`+mapname+`"
+	"author" "`+authorname+`"
+	"t_arms" "`+selected['tr'].arms+`"
+	"ct_arms" "`+selected['ct'].arms+`"
+	"t_models"
+	{
+`;
+
+			for (var i = 0; i < selected['tr'].models.length; i++) {
+				kv += `		"` + selected['tr'].models[i] + `" ""
+`;
+			}
+
+			kv += `
+	}
+	"ct_models"
+	{
+`;
+
+			for (var i = 0; i < selected['ct'].models.length; i++) {
+				kv += `		"` + selected['ct'].models[i] + `" ""
+`;
+			}
+
+			kv += `
+	}
+}
+`;
+
+			$('#textareaKv').value = kv;
+
+			var file = new Blob([kv], {type: 'kv'});
+			var url = URL.createObjectURL(file);
+			$('#aDownload').href = url;
+			$('#aDownload').download = (mapname ? mapname : 'unnamed')+'.kv';
+
+		}
+	}
+
+	selected = [];
+	selected['ct'] = null;
+	selected['tr'] = null;
+
+	cts = [
+		{
+			name: 'FBI', arms: 'ct_arms_fbi.mdl',
+			models: ['ctm_fbi', 'ctm_fbi_variantA', 'ctm_fbi_variantB', 'ctm_fbi_variantC', 'ctm_fbi_variantD']
+		},
+		{
+			name: 'GIGN', arms: 'ct_arms_gign.mdl',
+			models: ['ctm_gign', 'ctm_gign_variantA', 'ctm_gign_variantB', 'ctm_gign_variantC', 'ctm_gign_variantD']
+		},
+		{
+			name: 'GSG9', arms: 'ct_arms_gsg9.mdl',
+			models: ['ctm_gsg9', 'ctm_gsg9_variantA', 'ctm_gsg9_variantB', 'ctm_gsg9_variantC', 'ctm_gsg9_variantD']
+		},
+		{
+			name: 'IDF', arms: 'ct_arms_idf.mdl',
+			models: ['ctm_idf', 'ctm_idf_variantB', 'ctm_idf_variantC', 'ctm_idf_variantD', 'ctm_idf_variantE', 'ctm_idf_variantF']
+		},
+		{
+			name: 'SAS', arms: 'ct_arms_sas.mdl',
+			models: ['ctm_sas', 'ctm_sas_variantA', 'ctm_sas_variantB', 'ctm_sas_variantC', 'ctm_sas_variantD', 'ctm_sas_variantE']
+		},
+		{
+			name: 'ST6', arms: 'ct_arms_st6.mdl',
+			models: ['ctm_st6', 'ctm_st6_variantA', 'ctm_st6_variantB', 'ctm_st6_variantC', 'ctm_st6_variantD']
+		},
+		{
+			name: 'SWAT', arms: 'ct_arms_swat.mdl',
+			models: ['ctm_swat', 'ctm_swat_variantA', 'ctm_swat_variantB', 'ctm_swat_variantC', 'ctm_swat_variantD']
+		},
+	];
+
+	trs = [
+		{
+			name: 'Anarchist', arms: 't_arms_anarchist.mdl',
+			models: ['tm_anarchist', 'tm_anarchist_variantA', 'tm_anarchist_variantB', 'tm_anarchist_variantC', 'tm_anarchist_variantD'],
+		},
+		{
+			name: 'Balkan', arms: 't_arms_balkan.mdl',
+			models: ['tm_balkan_variantA', 'tm_balkan_variantB', 'tm_balkan_variantC', 'tm_balkan_variantD', 'tm_balkan_variantE']
+		},
+		{
+			name: 'Leet', arms: 't_arms_leet.mdl',
+			models: ['tm_leet_variantA', 'tm_leet_variantB', 'tm_leet_variantC', 'tm_leet_variantD', 'tm_leet_variantE']
+		},
+		{
+			name: 'Phoenix', arms: 't_arms_phoenix.mdl',
+			models: ['tm_phoenix', 'tm_phoenix_variantA', 'tm_phoenix_variantB', 'tm_phoenix_variantC', 'tm_phoenix_variantD']
+		},
+		{
+			name: 'Pirate', arms: 't_arms_pirate.mdl',
+			models: ['tm_pirate', 'tm_pirate_variantA', 'tm_pirate_variantB', 'tm_pirate_variantC', 'tm_pirate_variantD']
+		},
+		{
+			name: 'Professional', arms: 't_arms_professional.mdl',
+			models: ['tm_professional', 'tm_professional_var1', 'tm_professional_var2', 'tm_professional_var3', 'tm_professional_var4']
+		},
+		{
+			name: 'Separatist', arms: 't_arms_separatist.mdl',
+			models: ['tm_separatist', 'tm_separatist_variantA', 'tm_separatist_variantB', 'tm_separatist_variantC', 'tm_separatist_variantD']
+		},
+	];
+
+	makethingys(cts, $('#divCTs'), 'ct');
+	makethingys(trs, $('#divTRs'), 'tr');
+</script>
