@@ -1,0 +1,136 @@
+<!doctype html>
+
+<title>Checker Dance but it keeps getting faster and faster</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<style>
+	@font-face {
+		font-family: determination-mono;
+		src: url('DTM-Mono.otf');
+	}
+	html, body {
+		font-family: determination-mono;
+		font-size: 20pt;
+		-webkit-font-smoothing: none;
+		margin: 0;
+		background-color: #000;
+		color: #fff;
+		height: 100vh;
+		/* overflow: none; */ /* scrollbars are funny */
+	}
+	button {
+		font: inherit;
+		background: inherit;
+		color: inherit;
+		border: 2px solid white;
+		padding: 8px;
+	}
+	#imgKRound {
+		width: 86px;
+		image-rendering: pixelated;
+		position: relative;
+		padding: 16px;
+		transform: translateY(0.5px);
+	}
+	#divSpeed {
+		height: 24px;
+	}
+	#container {
+		text-align: center;
+		position: relative;
+		top: 50%;
+		transform: translateY(-50%);
+	}
+</style>
+
+<div id="container">
+	<div><img id='imgKRound' /></div>
+	<div id='divSpeed'><button id='buttonStart' >Play</button></div>
+</div>
+
+<script>
+
+	var $ = (q) => document.getElementById(q)
+
+	var randomRange = (min, max) => {
+		return Math.random() * (max - min) + min;
+	}
+
+	var speedChangeAmount = 1;
+	var speedChangeWaitStart = 750;
+	var speedChangeWaitMultiplier = 1;
+	var animationShakePerPercentage = 0.02;
+	var animationMultipler = 1;
+
+	var currentSpeed = 100;
+	var audioCtx = new AudioContext();
+	var source = audioCtx.createBufferSource();
+
+	// load song
+	var promFetch = fetch('checker-dance.ogg');
+
+	// load song into audio api
+	var promSong = promFetch
+		.then(response => response.arrayBuffer()) //convert to arraybuffer
+		.then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer)) //decode into audiobuffer
+		.then(buffer => {
+			source.buffer = buffer; //load buffer into buffersourcenode
+			source.loop = true;
+			source.connect(audioCtx.destination);
+		})
+		.catch(e => {throw new Error(e)});
+
+	// audiocontext requires a input to start playing
+	var buttonStart = $('buttonStart');
+	buttonStart.onclick = () => {
+
+		$('divSpeed').textContent = (currentSpeed) + '%';
+
+		// only start if it loaded
+		promSong
+			.then(() => {
+				source.start();
+				animate();
+				requestAnimationFrame(frame);
+				setTimeout(changeSpeed, speedChangeWaitStart)
+			})
+			.catch(e => {throw new Error(e)})
+	}
+
+	// sound speed change
+	var changeSpeed = () => {
+		currentSpeed += speedChangeAmount;
+		source.playbackRate.value = currentSpeed / 100;
+		setTimeout(changeSpeed, speedChangeWaitStart / ((currentSpeed / 100) * speedChangeWaitMultiplier))
+
+		console.log(speedChangeWaitStart / ((currentSpeed / 100) * speedChangeWaitMultiplier))
+
+		$('divSpeed').textContent = (currentSpeed) + '%';
+	}
+
+	// preloading
+	$('imgKRound').src = 'check4.png';
+	$('imgKRound').src = 'check3.png';
+	$('imgKRound').src = 'check2.png';
+	$('imgKRound').src = 'check1.png';
+
+	// animation
+	var animate = () => {
+		setTimeout(() => {$('imgKRound').src = 'check1.png'}, 0);
+		//console.log(100 / (currentSpeed / 100 * animationMultipler));
+		setTimeout(() => {$('imgKRound').src = 'check2.png'}, 100 / (currentSpeed / 100 * animationMultipler));
+		setTimeout(() => {$('imgKRound').src = 'check3.png'}, 400 / (currentSpeed / 100 * animationMultipler));
+		setTimeout(() => {$('imgKRound').src = 'check4.png'}, 500 / (currentSpeed / 100 * animationMultipler));
+
+		setTimeout(animate, 800 / (currentSpeed / 100 * animationMultipler))
+	}
+
+	// shake
+	var frame = () => {
+		var v = (currentSpeed-100) * animationShakePerPercentage;
+		$('imgKRound').style.left = Math.round(randomRange(-v, +v)) + 'px';
+		$('imgKRound').style.top = Math.round(randomRange(-v, +v)) + 'px';
+		requestAnimationFrame(frame);
+	}
+	
+</script>
