@@ -1,0 +1,62 @@
+<!doctype html>
+
+<title>Audio player</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<h1>Audio player</h1>
+
+<div id="container">
+
+	<div>File:</div>
+	<div><input id='inputFile' type='file' /></div>
+	
+	<div>Speed:</div>
+	<div><input id='inputSpeed' type='number' value=1 step=any></div>
+
+</div>
+
+<script>
+	
+	var $ = (q) => document.getElementById(q);
+
+	var inputFile = $('inputFile');
+	var inputSpeed = $('inputSpeed');
+
+	var speed = 1;
+
+	var audioCtx = new AudioContext();
+	var source = null;
+
+	inputFile.addEventListener('change', (e) => {
+
+		var fileReader = new FileReader();
+		fileReader.onload = (f) => {
+
+			// audioCtx.resume();
+			if (source) {
+				source.stop();
+			}
+
+			audioCtx.decodeAudioData(f.target.result)
+			.then(buffer => {
+				source = audioCtx.createBufferSource();
+				source.buffer = buffer;
+				source.playbackRate.value = speed;
+				source.connect(audioCtx.destination);
+			})
+			.then(() => {
+				source.start();
+			});
+
+		}
+		fileReader.readAsArrayBuffer(e.target.files[0]);
+
+	});
+
+	inputSpeed.addEventListener('change', (e) => {
+		speed = e.target.value
+		source.playbackRate.value = speed;
+
+	});
+	
+</script>
