@@ -8,10 +8,12 @@
 <div id="container">
 
 	<div>File:</div>
-	<div><input id='inputFile' type='file' /></div>
-	
+	<div><input id='inputFile' type='file' accept='audio/*' /></div>
+
 	<div>Speed:</div>
 	<div><input id='inputSpeed' type='number' value=1 step=any></div>
+
+	<div><button id='buttonPlay'>Play</button> <button id='buttonStop'>Stop</button></div>
 
 </div>
 
@@ -21,23 +23,56 @@
 
 	var inputFile = $('inputFile');
 	var inputSpeed = $('inputSpeed');
+	var buttonPlay = $('buttonPlay');
+	var buttonStop = $('buttonStop');
 
 	var speed = 1;
+	var file = null;
 
-	var audioCtx = new AudioContext();
+	var audioCtx = null;
 	var source = null;
 
 	inputFile.addEventListener('change', (e) => {
 
+		file = e.target.files[0];
+		if (source) {
+			play();
+		}
+
+	});
+
+	inputSpeed.addEventListener('change', (e) => {
+
+		speed = e.target.value;
+		if (source) {
+			source.playbackRate.value = speed;
+		}
+
+	});
+
+	buttonPlay.addEventListener('click', (e) => {
+		play();
+	});
+
+	buttonStop.addEventListener('click', (e) => {
+		stop();
+	});
+
+	var play = () => {
+
+		if (!file) return;
+
 		var fileReader = new FileReader();
-		fileReader.onload = (f) => {
+		fileReader.onload = (e) => {
 
 			// audioCtx.resume();
 			if (source) {
 				source.stop();
 			}
 
-			audioCtx.decodeAudioData(f.target.result)
+			if (!audioCtx) audioCtx = new AudioContext();
+
+			audioCtx.decodeAudioData(e.target.result)
 			.then(buffer => {
 				source = audioCtx.createBufferSource();
 				source.buffer = buffer;
@@ -49,14 +84,14 @@
 			});
 
 		}
-		fileReader.readAsArrayBuffer(e.target.files[0]);
+		fileReader.readAsArrayBuffer(file);
+	}
 
-	});
-
-	inputSpeed.addEventListener('change', (e) => {
-		speed = e.target.value
-		source.playbackRate.value = speed;
-
-	});
+	var stop = () => {
+		if (source) {
+			source.stop();
+			source = null;
+		}
+	}
 	
 </script>
