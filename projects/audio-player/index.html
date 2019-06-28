@@ -23,6 +23,11 @@
 <button class='stop'>Stop</button>
 
 <label>
+	<input class='loop' type='checkbox' />
+	<span>Loop</span>
+</label>
+
+<label>
 	<span>Playback rate: </span>
 	<input class='playback-rate' type='number' step=any value=1 />
 </label>
@@ -83,6 +88,10 @@
 		$('.current-time').textContent = getHumanTime(audioCurrentTime);
 	}
 
+	$('.loop').onchange = e => {
+		changeLoop(e.target.checked);
+	}
+
 	$('.playback-rate').onchange = e => {
 		changePlaybackRate(e.target.value);
 	}
@@ -120,7 +129,7 @@
 		$('.seek-bar').value = audioCurrentTime;
 	}
 
-	setInterval(() => updateUI(), 100);
+	setInterval(() => updateUI(), 0);
 
 	var audioContext;
 	var getAudioContext = () => {
@@ -159,7 +168,10 @@
 			var ctx = getAudioContext();
 
 			audioSource = ctx.createBufferSource();
+			audioSource.onended = onSourceEnded;
+
 			audioSource.buffer = audioBuffer;
+			//audioSource.loop = loop;
 			audioSource.playbackRate.value = playbackRate;
 			audioSource.connect(ctx.destination);
 			audioSource.start(0, getCurrentTime());
@@ -193,11 +205,29 @@
 		resetSource();
 	}
 
+	var onSourceEnded = e => {
+		if (audioPlaying) {
+			console.log('ENDENED!');
+			stop();
+			if (loop) {
+				play();
+			}
+		}
+	}
+
 	// forces it to recreate source with whatever effects
 	var resetSource = () => {
 		if (audioPlaying) {
 			pause();
 			play();
+		}
+	}
+
+	var loop = false;
+	var changeLoop = value => {
+		loop = value;
+		if (audioSource) {
+			//audioSource.loop = loop;
 		}
 	}
 
