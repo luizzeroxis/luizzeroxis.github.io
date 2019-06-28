@@ -1,97 +1,225 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <title>Audio player</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+<style>
+	progress {
+		width: 100%;
+	}
+</style>
+
 <h1>Audio player</h1>
 
-<div id="container">
+<input class='file' type="file" accept="audio/*" />
+<button class='open-this-file'>Open this file</button>
 
-	<div>File:</div>
-	<div><input id='inputFile' type='file' accept='audio/*' /></div>
+<div class='file-name'>Name</div>
+<div class='file-size'>Size</div>
+<div class='file-type'>Type</div>
 
-	<div>Speed:</div>
-	<div><input id='inputSpeed' type='number' value=1 step=any></div>
+<button class='play'>Play</button>
+<button class='pause'>Pause</button>
+<button class='stop'>Stop</button>
 
-	<div><button id='buttonPlay'>Play</button> <button id='buttonStop'>Stop</button></div>
+<label>
+	<span>Playback rate: </span>
+	<input class='playback-rate' type='number' step=any value=1 />
+</label>
 
+<div>
+	<span class='current-time'>0 seconds</span>
+	<span> / </span>
+	<span class='duration'>0 seconds</span>
 </div>
+
+<progress class='seek-bar' value=0></progress>
+
+<div class='status'>Ready.</div>
 
 <script>
 	
-	var $ = (q) => document.getElementById(q);
+	var $ = (q) => document.querySelector(q);
 
-	var inputFile = $('inputFile');
-	var inputSpeed = $('inputSpeed');
-	var buttonPlay = $('buttonPlay');
-	var buttonStop = $('buttonStop');
-
-	var speed = 1;
-	var file = null;
-
-	var audioCtx = null;
-	var source = null;
-
-	inputFile.addEventListener('change', (e) => {
-
-		file = e.target.files[0];
-		if (source) {
-			play();
+	// $('input.file')
+	$('button.open-this-file').onclick = e => {
+		if ($('input.file').files.length == 0) {
+			alert('Select a file first!');
+			return;
 		}
 
-	});
+		$('.status').textContent = "Opening file...";
 
-	inputSpeed.addEventListener('change', (e) => {
+		var file = $('input.file').files[0];
 
-		speed = e.target.value;
-		if (source) {
-			source.playbackRate.value = speed;
-		}
+		$('.file-name').textContent = file.name;
+		$('.file-size').textContent = getHumanSize(file.size);
+		$('.file-type').textContent = file.type;
 
-	});
+		openFile(file)
+		.then(() => {
+			$('.status').textContent = "Stopped.";
+			$('.current-time').textContent = getHumanTime(audioCurrentTime);
+			$('.duration').textContent = getHumanTime(audioBuffer.duration);
+			$('.seek-bar').max = audioBuffer.duration;
+		});
+	}
 
-	buttonPlay.addEventListener('click', (e) => {
+	$('button.play').onclick = e => {
 		play();
-	});
+		$('.status').textContent = "Playing.";
+		$('.current-time').textContent = getHumanTime(audioCurrentTime);
+	}
 
-	buttonStop.addEventListener('click', (e) => {
+	$('button.pause').onclick = e => {
+		pause();
+		$('.status').textContent = "Paused.";
+		$('.current-time').textContent = getHumanTime(audioCurrentTime);
+	}
+
+	$('button.stop').onclick = e => {
 		stop();
-	});
+		$('.status').textContent = "Stopped.";
+		$('.current-time').textContent = getHumanTime(audioCurrentTime);
+	}
 
-	var play = () => {
+	$('.playback-rate').onchange = e => {
+		changePlaybackRate(e.target.value);
+	}
 
-		if (!file) return;
+	$('.seek-bar').onmousedown = e => {
+		if (audioBuffer) {
+			var time = e.offsetX * (audioBuffer.duration / e.target.offsetWidth);
+			seekTo(time);
+		}
+	}
 
-		var fileReader = new FileReader();
-		fileReader.onload = (e) => {
+	var getHumanSize = value => {
+		var symbol = 'B';
+		var sizes = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
 
-			// audioCtx.resume();
-			if (source) {
-				source.stop();
+		sizes.some(size => {
+			if (value >= Math.pow(2, 10)) {
+				value = value / 1024;
+				symbol = size;
+			} else {
+				return true;
 			}
+		})
 
-			if (!audioCtx) audioCtx = new AudioContext();
+		return parseFloat(value.toFixed(3)) + ' ' + symbol;
+	}
 
-			audioCtx.decodeAudioData(e.target.result)
-			.then(buffer => {
-				source = audioCtx.createBufferSource();
-				source.buffer = buffer;
-				source.playbackRate.value = speed;
-				source.connect(audioCtx.destination);
-			})
-			.then(() => {
-				source.start();
-			});
+	var getHumanTime = value => {
+		return Math.floor(value) + ' seconds';
+	}
+
+	var updateUI = () => {
+		getCurrentTime();
+		$('.current-time').textContent = getHumanTime(audioCurrentTime);
+		$('.seek-bar').value = audioCurrentTime;
+	}
+
+	setInterval(() => updateUI(), 100);
+
+	var audioContext;
+	var getAudioContext = () => {
+		if (!audioContext) audioContext = new AudioContext();
+		return audioContext;
+	}
+
+	var readFileAsArrayBuffer = file => {
+		return new Promise((resolve, reject) => {
+			var fileReader = new FileReader();
+			fileReader.onload = () => {
+				resolve(fileReader.result);
+			}
+			fileReader.readAsArrayBuffer(file);
+		});
+	}
+
+	var audioBuffer;
+	var openFile = file => {
+
+		return readFileAsArrayBuffer(file)
+		.then(arrayBuffer => {
+			var ctx = getAudioContext();
+			return ctx.decodeAudioData(arrayBuffer);
+		})
+		.then(buffer => {
+			audioBuffer = buffer;
+		});
+	}
+
+	var audioPlaying = false;
+
+	var audioSource;
+	var play = () => {
+		if (audioBuffer && !audioSource) {
+			var ctx = getAudioContext();
+
+			audioSource = ctx.createBufferSource();
+			audioSource.buffer = audioBuffer;
+			audioSource.playbackRate.value = playbackRate;
+			audioSource.connect(ctx.destination);
+			audioSource.start(0, getCurrentTime());
+
+			audioPlaying = true;
 
 		}
-		fileReader.readAsArrayBuffer(file);
+	}
+
+	var pause = () => {
+		audioPlaying = false;
+
+		if (audioSource) {
+			audioSource.stop();
+			audioSource = null;
+		}
 	}
 
 	var stop = () => {
-		if (source) {
-			source.stop();
-			source = null;
+		audioCurrentTime = 0;
+		audioPlaying = false;
+
+		if (audioSource) {
+			audioSource.stop();
+			audioSource = null;
 		}
 	}
-	
+
+	var seekTo = (seconds) => {
+		audioCurrentTime = seconds;
+		resetSource();
+	}
+
+	// forces it to recreate source with whatever effects
+	var resetSource = () => {
+		if (audioPlaying) {
+			pause();
+			play();
+		}
+	}
+
+	var playbackRate = 1;
+	var changePlaybackRate = value => {
+		playbackRate = value;
+		if (audioSource) {
+			audioSource.playbackRate.value = playbackRate;
+		}
+	}
+
+	var lastTimeCheckTime;
+	var audioCurrentTime = 0;
+	var getCurrentTime = () => {
+		if (audioSource) {
+			var ctx = getAudioContext();
+			if (audioPlaying) {
+				audioCurrentTime += (ctx.currentTime - lastTimeCheckTime) * playbackRate;
+			}
+			lastTimeCheckTime = ctx.currentTime;
+		}
+		return audioCurrentTime;
+	}
+
 </script>
