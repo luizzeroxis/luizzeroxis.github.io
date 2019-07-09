@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<meta name="viewport" content="width=device-width" />
+
+<style>
+	.flex {
+		display: flex;
+		
+		flex-wrap: wrap;
+	}
+	.flex > div {
+		padding: 4px;
+		flex-grow: 1;
+		flex-basis: 0;
+	}
+	.flex > .auto-size {
+		flex-grow: unset;
+		align-self: center;
+	}
+	textarea {
+		box-sizing: border-box;
+		width: 100%;
+		height: 50vh;
+	}
+
+	@media (max-width: 512px) {
+		.flex > .auto-size {
+			flex-basis: 100%;
+		}
+	}
+</style>
+
+<script src="HTMLToHConverter.js"></script>
+
+<h1>Convert HTML to H.js code!!!</h1>
+
+<div class='flex'>
+
+	<div>
+		<div>HTML:</div>
+		<textarea class='html'></textarea>
+	</div>
+
+	<div class='auto-size'>
+		<button class='convert'>Convert</button>
+	</div>
+
+	<div>
+		<div>JavaScript:</div>
+		<textarea class='js' readonly></textarea>
+	</div>
+
+</div>
+
+<script>
+	var $ = q => document.querySelector(q);
+	$('button.convert').onclick = () => {
+		$('textarea.js').value = htmlToHJS($('textarea.html').value);
+	}
+</script>
