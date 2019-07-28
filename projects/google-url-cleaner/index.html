@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+
+<meta name="viewport" content="width=device-width" />
+<title>Google Search URL Cleaner</title>
+<style>
+	body {
+		text-align: center;
+	}
+	input#url {
+		width: 80%;
+		max-width: 600px;
+		margin-left: 16px;
+		margin-right: 16px;
+	}
+	a#result:before {
+		content: '';
+		display: inline-block;
+	}
+	footer {
+		text-align: left;
+	}
+</style>
+
+<h1>Google Search URL Cleaner</h1>
+
+<p>Paste a <a href="https://google.com/">Google Search</a> URL here and have it be simplified, removing unnecessary parameters that are mostly used for tracking.</p>
+
+<input id="url" type="text" placeholder="URL" />
+
+<p><a id="result"></a></p>
+
+<hr/>
+
+<footer><p><a href="https://github.com/luizeldorado/luizeldorado.github.io/tree/master/projects/google-url-cleaner">Github</a></p></footer>
+
+<script>
+
+	var $ = q => document.querySelector(q);
+
+	var elem_result = $('#result');
+	var elem_url = $('#url');
+
+	var allowedParameters = ["as_dt","as_epq","as_eq","as_filetype","as_ft","as_lq","as_nhi","as_nlo","as_occt","as_oq","as_q","as_qdr","as_rights","as_rq","as_sitesearch","cr","filter","pws","q","qdr","safe","sitesearch","start","tbm","tbs"];
+
+
+	elem_url.addEventListener("input", e => {
+
+		var questionIndex = elem_url.value.indexOf("?");
+		if (questionIndex != -1) {
+			var url = elem_url.value.substring(questionIndex);
+
+			var originalParams = new URLSearchParams(url);
+			var cleanedParams = new URLSearchParams();
+
+			for(var i of allowedParameters) {
+				if (originalParams.has(i)) {
+					cleanedParams.append(i, originalParams.get(i));
+				}
+			}
+
+			var cleanedUrl = new URL("https://google.com/search");
+			cleanedUrl.search = cleanedParams;
+
+			elem_result.href = cleanedUrl.href;
+			elem_result.textContent = cleanedUrl.href;
+		} else {
+			elem_result.href = '';
+			elem_result.textContent = '';
+			console.log("No query string in URL.");
+		}
+
+	});
+
+</script>
