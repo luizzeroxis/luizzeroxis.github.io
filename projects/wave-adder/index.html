@@ -1,0 +1,290 @@
+<!doctype html>
+
+<style>
+	
+canvas {
+	image-rendering: pixelated;
+	border-bottom: 1px solid black;
+	border-left: 1px solid black;
+	border-right: 1px solid black;
+}
+
+div.wave > * {
+	vertical-align: middle;
+}
+
+input.frequency {
+	width: 1024px;
+}
+
+span.frequency {
+	display: inline-block;
+	min-width: 56px;
+}
+
+input.volume {
+	width: 120px;
+}
+
+span.volume {
+	display: inline-block;
+	min-width: 40px;
+}
+
+</style>
+
+<div><canvas id='canvas' width=1024 height=128></canvas></div>
+
+<button class='add-wave'>Add wave</button>
+<button class='remove-all-waves'>Remove all waves</button>
+
+<label><input class='relative-volumes' type='checkbox' /> Relative volumes</label>
+
+<div class='wave-list'>
+	
+</div>
+
+<template class='wave'>
+	<div class='wave'>
+		<input class='frequency' type='range' min=0 max=10000 value=0 />
+		<span class='frequency'>0 Hz</span>
+		<input class='volume' type='range' min=0 max=100 step=1 value=100 />
+		<span class='volume'>100%</span>
+		<button class='remove-wave'>Remove wave</button>
+	</div>
+</template>
+
+<script>
+
+// actual sound
+
+var audioCtx = null;
+var analyserNode = null;
+
+var waves = [];
+
+var relativeVolumes = false;
+
+var startAudioContext = () => {
+
+	// create audio ctx
+	if (!audioCtx) {
+		audioCtx = new AudioContext();
+	}
+
+	// create analyser node
+	if (!analyserNode) {
+		analyserNode = audioCtx.createAnalyser();
+		analyserNode.fftSize = 4096;
+		analyserNode.connect(audioCtx.destination);
+	}
+
+}
+
+var startGainNode = (wave) => {
+	startAudioContext();
+	if (!wave.gainNode) {
+		wave.gainNode = audioCtx.createGain();
+		wave.gainNode.connect(analyserNode);
+	}
+}
+
+// wave manipulation
+
+var addWave = () => {
+
+	var wave = {
+		frequency: 0,
+		volume: 1,
+		oscNode: null,
+		gainNode: null,
+	};
+
+	waves.push(wave);
+	startGainNode(wave);
+	updateVolumes();
+
+	return wave;
+}
+
+var removeWave = (wave) => {
+	if (wave.gainNode)
+		wave.gainNode.disconnect();
+
+	var waveIndex = waves.findIndex(x => x == wave);
+	waves.splice(waveIndex, 1);
+
+	updateVolumes();
+}
+
+var removeAllWaves = () => {
+	waves.forEach(wave => {
+		//wave.oscNode.disconnect();
+		if (wave.gainNode)
+			wave.gainNode.disconnect();
+	});
+	waves = [];
+
+	updateVolumes();
+}
+
+var setFrequency = (wave, value) => {
+
+	wave.frequency = value;
+
+	startAudioContext();
+	//startGainNode(wave);
+
+	// restart osc node
+	if (wave.oscNode) {
+		wave.oscNode.stop();
+		wave.oscNode.disconnect();
+	}
+
+	wave.oscNode = audioCtx.createOscillator();
+	wave.oscNode.type = 'sine';
+	wave.oscNode.frequency.value = wave.frequency;
+
+	wave.oscNode.connect(wave.gainNode);
+	wave.oscNode.start();
+
+	updateVolumes();
+
+}
+
+var setVolume = (wave, value) => {
+
+	wave.volume = value;
+
+	startAudioContext();
+	//startGainNode(wave);
+
+	updateVolumes();
+}
+
+var updateVolumes = () => {
+	waves.forEach(wave => {
+		if (wave.gainNode)
+		if (relativeVolumes) {
+			wave.gainNode.gain.value = wave.volume / waves.length;
+		} else {
+			wave.gainNode.gain.value = wave.volume;
+		}
+	});
+}
+
+// loading system
+
+var load = (array) => {
+	removeAllWaves();
+
+	array.forEach((wave) => {
+		var w = addWave();
+		setFrequency(w, wave[0]);
+		setVolume(w, wave[1]);
+	});
+}
+
+var getLoad = () => {
+
+	var list = [];
+
+	waves.forEach(wave => {
+		list.push(`[`
+				+ wave.frequency
+				+ `, `
+				+ wave.volume
+				+ `]`)
+	})
+
+	var string = `load([` + list.join(`, `) + `]);`;
+	console.log(string);
+
+	return string;
+}
+
+// display
+
+var canvas = document.getElementById('canvas');
+var canvasCtx = canvas.getContext('2d');
+
+var draw = () => {
+
+	requestAnimationFrame(() => draw());
+
+	if (!audioCtx) return;
+
+	var dataArray = new Float32Array(analyserNode.fftSize);
+	analyserNode.getFloatTimeDomainData(dataArray);
+
+	var pixelsPerSample = canvas.width / audioCtx.sampleRate;
+
+	var dataEndPosition = (audioCtx.currentTime % 1) * audioCtx.sampleRate;
+	var dataBeginPosition = dataEndPosition - dataArray.length;
+	var dataLength = dataArray.length;
+
+	// +1 and -1 because clearrect can't clear subpixels, so it ends up clearing more than it should
+	// (there's probably a more elegant solution to this)
+
+	canvasCtx.clearRect(
+		(dataBeginPosition * pixelsPerSample) + 1, 0,
+		(dataLength * pixelsPerSample) - 1, canvas.height);
+
+	var dataHeight = canvas.height - 2; // leave 1 pixel above and below
+
+	for (var i = 0; i < dataArray.length; i++) {
+		var dataX = Math.floor((dataBeginPosition + i) * pixelsPerSample);
+		var dataY = Math.floor(dataArray[i] * (dataHeight/2) + (dataHeight/2));
+
+		canvasCtx.fillRect(dataX, dataY, 1, 1);
+	}
+
+	// TODO: wrap negative pixels around to the right side
+
+}
+
+requestAnimationFrame(() => draw());
+
+// buttons
+
+var divWaveList = document.querySelector('div.wave-list');
+
+document.querySelector('button.add-wave').onclick = e => {
+	
+	let wave = addWave();
+	wave.element = document.querySelector('template.wave').content.cloneNode(true).querySelector('div.wave');
+
+	wave.element.querySelector('input.frequency').oninput = e => {
+		setFrequency(wave, e.target.value);
+		wave.element.querySelector('span.frequency').textContent = e.target.value + ' Hz';
+	}
+
+	wave.element.querySelector('input.volume').oninput = e => {
+		setVolume(wave, e.target.value / 100);
+		wave.element.querySelector('span.volume').textContent = e.target.value + '%';
+	}
+
+	wave.element.querySelector('button.remove-wave').onclick = e => {
+		removeWave(wave);
+		wave.element.parentNode.removeChild(wave.element);
+	}
+
+	divWaveList.appendChild(wave.element);
+
+}
+
+document.querySelector('button.remove-all-waves').onclick = e => {
+	removeAllWaves();
+	divWaveList.textContent = '';
+}
+
+document.querySelector('input.relative-volumes').onchange = e => {
+	if (e.target.checked) {
+		relativeVolumes = true;
+	} else {
+		relativeVolumes = false;
+	}
+	updateVolumes();
+}
+
+</script>
