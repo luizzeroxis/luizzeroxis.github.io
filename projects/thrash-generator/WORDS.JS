@@ -66,6 +66,7 @@ WORDS = {
 "Microsoft Office",
 "Microwaved",
 "Necessary",
+"Nefarious",
 "Nuclear",
 "Obscure",
 "Offensive",
@@ -178,6 +179,7 @@ WORDS = {
 "Society",
 "Suffer",
 "Suicide",
+"Sword",
 "Tear",
 "Temptation",
 "Torment",
@@ -190,6 +192,7 @@ WORDS = {
 "Vomit",
 "Waltz",
 "War",
-"Winter"
+"Winter",
+"Words"
 	]
 }
