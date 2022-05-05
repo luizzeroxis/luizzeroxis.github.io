@@ -39,9 +39,7 @@ span.volume {
 
 <label><input class='relative-volumes' type='checkbox' /> Relative volumes</label>
 
-<div class='wave-list'>
-	
-</div>
+<div class='wave-list'></div>
 
 <template class='wave'>
 	<div class='wave'>
@@ -50,7 +48,7 @@ span.volume {
 		<span>Hz</span>
 		<input class='volume' type='range' min=0 max=100 step=1 value=100 />
 		<span class='volume'>100%</span>
-		<button class='remove-wave' title='Remove wave'>X</button>
+		<button class='remove-wave' title='Remove wave'>🗙</button>
 	</div>
 </template>
 
@@ -135,18 +133,22 @@ var setFrequency = (wave, value) => {
 	startAudioContext();
 	//startGainNode(wave);
 
-	// restart osc node
-	if (wave.oscNode) {
-		wave.oscNode.stop();
-		wave.oscNode.disconnect();
+	// restart all osc nodes, including this one
+	for (let wave of waves) {
+
+		if (wave.oscNode) {
+			wave.oscNode.stop();
+			wave.oscNode.disconnect();
+		}
+
+		wave.oscNode = audioCtx.createOscillator();
+		wave.oscNode.type = 'sine';
+		wave.oscNode.frequency.value = wave.frequency;
+
+		wave.oscNode.connect(wave.gainNode);
+		wave.oscNode.start();
+
 	}
-
-	wave.oscNode = audioCtx.createOscillator();
-	wave.oscNode.type = 'sine';
-	wave.oscNode.frequency.value = wave.frequency;
-
-	wave.oscNode.connect(wave.gainNode);
-	wave.oscNode.start();
 
 	updateVolumes();
 
@@ -171,36 +173,6 @@ var updateVolumes = () => {
 			wave.gainNode.gain.value = wave.volume;
 		}
 	});
-}
-
-// loading system
-
-var load = (array) => {
-	removeAllWaves();
-
-	array.forEach((wave) => {
-		var w = addWave();
-		setFrequency(w, wave[0]);
-		setVolume(w, wave[1]);
-	});
-}
-
-var getLoad = () => {
-
-	var list = [];
-
-	waves.forEach(wave => {
-		list.push(`[`
-				+ wave.frequency
-				+ `, `
-				+ wave.volume
-				+ `]`)
-	})
-
-	var string = `load([` + list.join(`, `) + `]);`;
-	console.log(string);
-
-	return string;
 }
 
 // display
@@ -259,7 +231,7 @@ document.querySelector('button.add-wave').onclick = e => {
 		wave.element.querySelector('input.frequency-text-box').value = e.target.value;
 	}
 
-	wave.element.querySelector('input.frequency-text-box').onchange = e => {
+	wave.element.querySelector('input.frequency-text-box').oninput = e => {
 		setFrequency(wave, e.target.value);
 		wave.element.querySelector('input.frequency').value = e.target.value;
 	}
