@@ -237,7 +237,9 @@ let htmlAddWave = (wave) => {
 	}
 
 	wave.element.querySelector('input.frequency-text-box').oninput = e => {
-		setFrequency(wave, parseFloat(e.target.value));
+		let value = parseFloat(e.target.value);
+		if (isNaN(value) || value < 0) value = 0;
+		setFrequency(wave, value);
 		wave.element.querySelector('input.frequency').value = e.target.value;
 	}
 
