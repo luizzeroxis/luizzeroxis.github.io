@@ -1,7 +1,7 @@
 <!doctype html>
 
 <style>
-	
+
 canvas {
 	image-rendering: pixelated;
 	border-bottom: 1px solid black;
@@ -17,9 +17,8 @@ input.frequency {
 	width: 1024px;
 }
 
-span.frequency {
-	display: inline-block;
-	min-width: 56px;
+input.frequency-text-box {
+	width: 56px;
 }
 
 input.volume {
@@ -46,11 +45,12 @@ span.volume {
 
 <template class='wave'>
 	<div class='wave'>
-		<input class='frequency' type='range' min=0 max=10000 value=0 />
-		<span class='frequency'>0 Hz</span>
+		<input class='frequency' type='range' min=0 max=10000 value=0 step=10 />
+		<input class='frequency-text-box' type='number' value=0 />
+		<span>Hz</span>
 		<input class='volume' type='range' min=0 max=100 step=1 value=100 />
 		<span class='volume'>100%</span>
-		<button class='remove-wave'>Remove wave</button>
+		<button class='remove-wave' title='Remove wave'>X</button>
 	</div>
 </template>
 
@@ -256,7 +256,12 @@ document.querySelector('button.add-wave').onclick = e => {
 
 	wave.element.querySelector('input.frequency').oninput = e => {
 		setFrequency(wave, e.target.value);
-		wave.element.querySelector('span.frequency').textContent = e.target.value + ' Hz';
+		wave.element.querySelector('input.frequency-text-box').value = e.target.value;
+	}
+
+	wave.element.querySelector('input.frequency-text-box').onchange = e => {
+		setFrequency(wave, e.target.value);
+		wave.element.querySelector('input.frequency').value = e.target.value;
 	}
 
 	wave.element.querySelector('input.volume').oninput = e => {
