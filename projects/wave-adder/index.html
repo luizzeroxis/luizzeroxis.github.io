@@ -39,6 +39,9 @@ span.volume {
 
 <label><input class='relative-volumes' type='checkbox' /> Relative volumes</label>
 
+<button class='load-waves'>Load waves</button>
+<button class='save-waves'>Save waves</button>
+
 <div class='wave-list'></div>
 
 <template class='wave'>
@@ -217,22 +220,24 @@ var draw = () => {
 
 requestAnimationFrame(() => draw());
 
-// buttons
+// html
 
 var divWaveList = document.querySelector('div.wave-list');
 
-document.querySelector('button.add-wave').onclick = e => {
-	
-	let wave = addWave();
+let htmlRemoveAllWaves = () => {
+	divWaveList.textContent = '';
+}
+
+let htmlAddWave = (wave) => {
 	wave.element = document.querySelector('template.wave').content.cloneNode(true).querySelector('div.wave');
 
 	wave.element.querySelector('input.frequency').oninput = e => {
-		setFrequency(wave, e.target.value);
+		setFrequency(wave, parseFloat(e.target.value));
 		wave.element.querySelector('input.frequency-text-box').value = e.target.value;
 	}
 
 	wave.element.querySelector('input.frequency-text-box').oninput = e => {
-		setFrequency(wave, e.target.value);
+		setFrequency(wave, parseFloat(e.target.value));
 		wave.element.querySelector('input.frequency').value = e.target.value;
 	}
 
@@ -247,12 +252,16 @@ document.querySelector('button.add-wave').onclick = e => {
 	}
 
 	divWaveList.appendChild(wave.element);
+}
 
+document.querySelector('button.add-wave').onclick = e => {
+	let wave = addWave();
+	htmlAddWave(wave);
 }
 
 document.querySelector('button.remove-all-waves').onclick = e => {
 	removeAllWaves();
-	divWaveList.textContent = '';
+	htmlRemoveAllWaves();
 }
 
 document.querySelector('input.relative-volumes').onchange = e => {
@@ -262,6 +271,58 @@ document.querySelector('input.relative-volumes').onchange = e => {
 		relativeVolumes = false;
 	}
 	updateVolumes();
+}
+
+document.querySelector('button.load-waves').onclick = e => {
+	let string = prompt("Input wave string to load:");
+	if (string == null) return;
+
+	let data;
+	try {
+		data = JSON.parse(string);
+	} catch {
+		alert('WRONG');
+		return;
+	}
+
+	removeAllWaves();
+	htmlRemoveAllWaves();
+
+	if (data.w) {
+		data.w.forEach(wave => {
+			let w = addWave();
+			setFrequency(w, wave[0]);
+			setVolume(w, wave[1]);
+
+			htmlAddWave(w);
+
+			w.element.querySelector('input.frequency').value = w.frequency;
+			w.element.querySelector('input.frequency-text-box').value = w.frequency;
+
+			w.element.querySelector('input.volume').value = w.volume * 100;
+		})
+	}
+
+	relativeVolumes = data.r ? true : false;
+	updateVolumes();
+
+	document.querySelector('input.relative-volumes').checked = relativeVolumes;
+}
+
+document.querySelector('button.save-waves').onclick = e => {
+	let data = {}
+
+	if (waves.length != 0) {
+		data.w = waves.map(wave => {
+			return [wave.frequency, wave.volume];
+		})
+	}
+	if (relativeVolumes) {
+		data.r = true;
+	}
+
+	let string = JSON.stringify(data);
+	prompt("Wave string:", string);
 }
 
 </script>
