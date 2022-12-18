@@ -1,24 +1,32 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <style>
 
-canvas {
-	image-rendering: pixelated;
-	border-bottom: 1px solid black;
-	border-left: 1px solid black;
-	border-right: 1px solid black;
+body, button, input {
+	font-family: sans-serif;
+	font-size: 9pt;
 }
 
-div.wave > * {
-	vertical-align: middle;
+div.wave {
+	display: flex;
+	align-items: center;
 }
 
 input.frequency {
-	width: 1024px;
+	flex: 1;
 }
 
 input.frequency-text-box {
 	width: 56px;
+}
+
+input.phase {
+	width: 40px;
+}
+
+span.phase {
+	display: inline-block;
+	min-width: 30px;
 }
 
 input.volume {
@@ -32,12 +40,12 @@ span.volume {
 
 </style>
 
-<div><canvas id='canvas' width=1024 height=128></canvas></div>
+<div><canvas id='canvas' width=1024 height=256></canvas></div>
 
 <button class='add-wave'>Add wave</button>
 <button class='remove-all-waves'>Remove all waves</button>
 
-<label><input class='relative-volumes' type='checkbox' /> Relative volumes</label>
+<label><input class='relative-volumes' type='checkbox' checked /><span>Relative volumes</span></label>
 
 <button class='load-waves'>Load waves</button>
 <button class='save-waves'>Save waves</button>
@@ -46,9 +54,13 @@ span.volume {
 
 <template class='wave'>
 	<div class='wave'>
-		<input class='frequency' type='range' min=0 max=10000 value=0 step=10 />
+		<input class='frequency' type='range' min=0 max=10000 value=0 step=1 />
 		<input class='frequency-text-box' type='number' value=0 />
 		<span>Hz</span>
+
+		<input class='phase' type='range' min=0 max=1 step=0.05 value=0 />
+		<span class='phase'>0ϕ</span>
+
 		<input class='volume' type='range' min=0 max=100 step=1 value=100 />
 		<span class='volume'>100%</span>
 		<button class='remove-wave' title='Remove wave'>🗙</button>
@@ -57,179 +69,212 @@ span.volume {
 
 <script>
 
-// actual sound
+// Waves
 
-var audioCtx = null;
-var analyserNode = null;
+let duration = 1;
+let relativeVolumes = true;
+let waves = [];
 
-var waves = [];
-
-var relativeVolumes = false;
-
-var startAudioContext = () => {
-
-	// create audio ctx
-	if (!audioCtx) {
-		audioCtx = new AudioContext();
-	}
-
-	// create analyser node
-	if (!analyserNode) {
-		analyserNode = audioCtx.createAnalyser();
-		analyserNode.fftSize = 4096;
-		analyserNode.connect(audioCtx.destination);
-	}
-
-}
-
-var startGainNode = (wave) => {
-	startAudioContext();
-	if (!wave.gainNode) {
-		wave.gainNode = audioCtx.createGain();
-		wave.gainNode.connect(analyserNode);
-	}
-}
-
-// wave manipulation
-
-var addWave = () => {
-
-	var wave = {
+const addWave = () => {
+	let wave = {
 		frequency: 0,
 		volume: 1,
-		oscNode: null,
-		gainNode: null,
+		phase: 0,
+		element: null,
 	};
 
 	waves.push(wave);
-	startGainNode(wave);
-	updateVolumes();
+
+	updateAudio();
 
 	return wave;
 }
 
-var removeWave = (wave) => {
-	if (wave.gainNode)
-		wave.gainNode.disconnect();
-
-	var waveIndex = waves.findIndex(x => x == wave);
-	waves.splice(waveIndex, 1);
-
-	updateVolumes();
+const setFrequency = (wave, value) => {
+	wave.frequency = value;
+	updateAudio();
 }
 
-var removeAllWaves = () => {
-	waves.forEach(wave => {
-		//wave.oscNode.disconnect();
-		if (wave.gainNode)
-			wave.gainNode.disconnect();
-	});
+const setPhase = (wave, value) => {
+	wave.phase = value;
+	updateAudio();
+}
+
+const setVolume = (wave, value) => {
+	wave.volume = value;
+	updateAudio();
+}
+
+const removeWave = wave => {
+	let index = waves.findIndex(x => x == wave);
+	waves.splice(index, 1);
+	updateAudio();
+}
+
+const removeAllWaves = () => {
+	waves = [];
+	updateAudio();
+}
+
+const setRelativeVolumes = value => {
+	relativeVolumes = value;
+	updateAudio();
+}
+
+const loadWaves = data => {
 	waves = [];
 
-	updateVolumes();
+	data.w?.forEach(dataWave => {
+		let wave = {
+			frequency: dataWave[0] ?? 0,
+			volume: dataWave[1] ?? 1,
+			phase: dataWave[2] ?? 0,
+			element: null,
+		};
+
+		waves.push(wave);
+	})
+
+	relativeVolumes = data.r ?? false;
+
+	updateAudio();
 }
 
-var setFrequency = (wave, value) => {
+const saveWaves = () => {
+	const data = {};
+	data.w = waves.map(wave => ([wave.frequency, wave.volume, wave.phase]));
+	data.r = relativeVolumes;
+	return data;
+}
 
-	wave.frequency = value;
+// Audio
 
-	startAudioContext();
-	//startGainNode(wave);
+let audioCtx;
+let startTime;
 
-	// restart all osc nodes, including this one
-	for (let wave of waves) {
+let quickFadeTime = 0.1;
 
-		if (wave.oscNode) {
-			wave.oscNode.stop();
-			wave.oscNode.disconnect();
+let sounds = [];
+
+const updateAudio = f => {
+	audioCtx ??= new AudioContext();
+
+	for (const sound of [...sounds]) {
+		if (!sound.doingFadeOut) {
+			sound.doingFadeOut = true;
+			sound.gainNode.gain.cancelScheduledValues(0);
+			sound.gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + quickFadeTime);
+
+			setTimeout(() => {
+				sound.source.stop();
+				sound.source.disconnect();
+				sound.gainNode.disconnect();
+
+				sounds.splice(sounds.findIndex(x => x == sound), 1);
+			}, quickFadeTime * 1000);
 		}
-
-		wave.oscNode = audioCtx.createOscillator();
-		wave.oscNode.type = 'sine';
-		wave.oscNode.frequency.value = wave.frequency;
-
-		wave.oscNode.connect(wave.gainNode);
-		wave.oscNode.start();
-
 	}
 
-	updateVolumes();
+	let newSource = audioCtx.createBufferSource();
+	newSource.buffer = makeBuffer();
+	newSource.loop = true;
 
-}
+	const newGainNode = audioCtx.createGain();
+	newGainNode.gain.value = 0;
+	newGainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + quickFadeTime);
 
-var setVolume = (wave, value) => {
+	newSource.connect(newGainNode);
+	newGainNode.connect(audioCtx.destination);
 
-	wave.volume = value;
-
-	startAudioContext();
-	//startGainNode(wave);
-
-	updateVolumes();
-}
-
-var updateVolumes = () => {
-	waves.forEach(wave => {
-		if (wave.gainNode)
-		if (relativeVolumes) {
-			wave.gainNode.gain.value = wave.volume / waves.length;
-		} else {
-			wave.gainNode.gain.value = wave.volume;
-		}
+	sounds.push({
+		source: newSource,
+		gainNode: newGainNode,
 	});
+	
+	let offset = 0;
+	if (startTime != null) {
+		offset = (audioCtx.currentTime - startTime) % duration;
+	}
+
+	newSource.start(0, offset);
+
+	startTime = audioCtx.currentTime;
 }
 
-// display
+const makeBuffer = () => {
+	audioCtx ??= new AudioContext();
 
-var canvas = document.getElementById('canvas');
-var canvasCtx = canvas.getContext('2d');
+	let sampleRate = 44100;
+	let samples = duration * sampleRate;
+	let buffer = audioCtx.createBuffer(1, samples, sampleRate);
+	let array = buffer.getChannelData(0);
 
-var draw = () => {
+	let relativeVolumeFactor = (relativeVolumes ? (1/waves.length) : 1);
 
+	for (let i=0; i<samples; ++i) {
+		let seconds = i / sampleRate;
+
+		for (let wave of waves) {
+			array[i] += wave.volume * relativeVolumeFactor * Math.sin(2 * Math.PI * (wave.frequency * seconds + wave.phase));
+		}
+	}
+
+	return buffer;
+}
+
+// Visualization
+
+let canvas = document.querySelector("canvas");
+var canvasCtx = canvas.getContext("2d");
+
+let visualDuration = 1;
+
+let draw = () => {
 	requestAnimationFrame(() => draw());
 
-	if (!audioCtx) return;
+	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-	var dataArray = new Float32Array(analyserNode.fftSize);
-	analyserNode.getFloatTimeDomainData(dataArray);
+	let relativeVolumeFactor = (relativeVolumes ? (1/waves.length) : 1);
 
-	var pixelsPerSample = canvas.width / audioCtx.sampleRate;
+	canvasCtx.beginPath();
+	canvasCtx.moveTo(0, canvas.height/2);
 
-	var dataEndPosition = (audioCtx.currentTime % 1) * audioCtx.sampleRate;
-	var dataBeginPosition = dataEndPosition - dataArray.length;
-	var dataLength = dataArray.length;
+	let horizontalResolution = 44100;
 
-	// +1 and -1 because clearrect can't clear subpixels, so it ends up clearing more than it should
-	// (there's probably a more elegant solution to this)
+	for (let x = 0; x < horizontalResolution; ++x) {
 
-	canvasCtx.clearRect(
-		(dataBeginPosition * pixelsPerSample) + 1, 0,
-		(dataLength * pixelsPerSample) - 1, canvas.height);
+		let y = 0;
+		for (let wave of waves) {
+			let xSeconds = (x / horizontalResolution) * visualDuration;
+			y += wave.volume * relativeVolumeFactor * Math.sin(2 * Math.PI * (wave.frequency * xSeconds + wave.phase));
+		}
 
-	var dataHeight = canvas.height - 2; // leave 1 pixel above and below
+		y = y * (canvas.height/2) + (canvas.height/2);
 
-	for (var i = 0; i < dataArray.length; i++) {
-		var dataX = Math.floor((dataBeginPosition + i) * pixelsPerSample);
-		var dataY = Math.floor(dataArray[i] * (dataHeight/2) + (dataHeight/2));
-
-		canvasCtx.fillRect(dataX, dataY, 1, 1);
+		canvasCtx.lineTo(x * (canvas.width / horizontalResolution), y);
 	}
 
-	// TODO: wrap negative pixels around to the right side
+	let alpha = 0.5;
 
+	canvasCtx.strokeStyle = "rgba(0, 0, 0, "+alpha.toString()+")";
+	canvasCtx.stroke();
 }
 
 requestAnimationFrame(() => draw());
 
-// html
+// HTML
 
 var divWaveList = document.querySelector('div.wave-list');
 
-let htmlRemoveAllWaves = () => {
-	divWaveList.textContent = '';
-}
-
 let htmlAddWave = (wave) => {
 	wave.element = document.querySelector('template.wave').content.cloneNode(true).querySelector('div.wave');
+
+	wave.element.querySelector('input.frequency').value = wave.frequency;
+	wave.element.querySelector('input.frequency-text-box').value = wave.frequency;
+	wave.element.querySelector('input.phase').value = wave.phase;
+	wave.element.querySelector('span.phase').textContent = wave.phase + 'ϕ';
+	wave.element.querySelector('input.volume').value = wave.volume * 100;
+	wave.element.querySelector('span.volume').valie = wave.volume * 100 + '%';
 
 	wave.element.querySelector('input.frequency').oninput = e => {
 		setFrequency(wave, parseFloat(e.target.value));
@@ -243,17 +288,26 @@ let htmlAddWave = (wave) => {
 		wave.element.querySelector('input.frequency').value = e.target.value;
 	}
 
+	wave.element.querySelector('input.phase').oninput = e => {
+		setPhase(wave, parseFloat(e.target.value));
+		wave.element.querySelector('span.phase').textContent = e.target.value + 'ϕ';
+	}
+
 	wave.element.querySelector('input.volume').oninput = e => {
-		setVolume(wave, e.target.value / 100);
+		setVolume(wave, parseFloat(e.target.value) / 100);
 		wave.element.querySelector('span.volume').textContent = e.target.value + '%';
 	}
 
 	wave.element.querySelector('button.remove-wave').onclick = e => {
 		removeWave(wave);
-		wave.element.parentNode.removeChild(wave.element);
+		wave.element.remove();
 	}
 
-	divWaveList.appendChild(wave.element);
+	divWaveList.append(wave.element);
+}
+
+let htmlRemoveAllWaves = () => {
+	divWaveList.textContent = '';
 }
 
 document.querySelector('button.add-wave').onclick = e => {
@@ -262,69 +316,44 @@ document.querySelector('button.add-wave').onclick = e => {
 }
 
 document.querySelector('button.remove-all-waves').onclick = e => {
-	removeAllWaves();
-	htmlRemoveAllWaves();
+	if (confirm("Remove all waves?")) {
+		removeAllWaves();
+		htmlRemoveAllWaves();
+	}
 }
 
 document.querySelector('input.relative-volumes').onchange = e => {
-	if (e.target.checked) {
-		relativeVolumes = true;
-	} else {
-		relativeVolumes = false;
-	}
-	updateVolumes();
+	setRelativeVolumes(e.target.checked);
 }
 
 document.querySelector('button.load-waves').onclick = e => {
-	let string = prompt("Input wave string to load:");
+
+	const string = prompt("Input a wave string:");
 	if (string == null) return;
 
 	let data;
 	try {
 		data = JSON.parse(string);
 	} catch {
-		alert('WRONG');
+		alert("Input incorrectly formatted.");
 		return;
 	}
 
-	removeAllWaves();
+	loadWaves(data);
+
 	htmlRemoveAllWaves();
 
-	if (data.w) {
-		data.w.forEach(wave => {
-			let w = addWave();
-			setFrequency(w, wave[0]);
-			setVolume(w, wave[1]);
-
-			htmlAddWave(w);
-
-			w.element.querySelector('input.frequency').value = w.frequency;
-			w.element.querySelector('input.frequency-text-box').value = w.frequency;
-
-			w.element.querySelector('input.volume').value = w.volume * 100;
-		})
-	}
-
-	relativeVolumes = data.r ? true : false;
-	updateVolumes();
+	waves.forEach(wave => {
+		htmlAddWave(wave);
+	})
 
 	document.querySelector('input.relative-volumes').checked = relativeVolumes;
 }
 
 document.querySelector('button.save-waves').onclick = e => {
-	let data = {}
-
-	if (waves.length != 0) {
-		data.w = waves.map(wave => {
-			return [wave.frequency, wave.volume];
-		})
-	}
-	if (relativeVolumes) {
-		data.r = true;
-	}
-
-	let string = JSON.stringify(data);
-	prompt("Wave string:", string);
+	const data = saveWaves();
+	const string = JSON.stringify(data);
+	prompt("Here's your wave string:", string);
 }
 
 </script>
