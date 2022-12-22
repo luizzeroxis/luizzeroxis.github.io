@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <style>
 
 body, button, input {
@@ -10,10 +13,18 @@ body, button, input {
 div.wave {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
+	justify-content: space-between;
 }
 
 input.frequency {
 	flex: 1;
+}
+
+div.options-1, div.options-2 {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
 }
 
 input.frequency-text-box {
@@ -38,6 +49,12 @@ span.volume {
 	min-width: 40px;
 }
 
+@media (max-width: 768px) {
+	input.frequency {
+		min-width: 100%;
+	}
+}
+
 </style>
 
 <div><canvas id='canvas' width=1024 height=256></canvas></div>
@@ -55,15 +72,20 @@ span.volume {
 <template class='wave'>
 	<div class='wave'>
 		<input class='frequency' type='range' min=0 max=10000 value=0 step=1 />
-		<input class='frequency-text-box' type='number' value=0 />
-		<span>Hz</span>
 
-		<input class='phase' type='range' min=0 max=1 step=0.05 value=0 />
-		<span class='phase'>0ϕ</span>
+		<div class='options-1'>
+			<input class='frequency-text-box' type='number' value=0 />
+			<span>Hz</span>
+		</div>
 
-		<input class='volume' type='range' min=0 max=100 step=1 value=100 />
-		<span class='volume'>100%</span>
-		<button class='remove-wave' title='Remove wave'>🗙</button>
+		<div class='options-2'>
+			<input class='phase' type='range' min=0 max=1 step=0.05 value=0 />
+			<span class='phase'>0ϕ</span>
+
+			<input class='volume' type='range' min=0 max=100 step=1 value=100 />
+			<span class='volume'>100%</span>
+			<button class='remove-wave' title='Remove wave'>🗙</button>
+		</div>
 	</div>
 </template>
 
@@ -226,6 +248,12 @@ const makeBuffer = () => {
 
 let canvas = document.querySelector("canvas");
 var canvasCtx = canvas.getContext("2d");
+
+canvas.width = document.body.clientWidth;
+
+window.onresize = () => {
+	canvas.width = document.body.clientWidth;
+}
 
 let visualDuration = 1;
 
