@@ -67,6 +67,8 @@ span.volume {
 <button class='load-waves'>Load waves</button>
 <button class='save-waves'>Save waves</button>
 
+<label><input class='exponential-frequencies' type='checkbox' /><span>Exponential frequencies</span></label>
+
 <div class='wave-list'></div>
 
 <template class='wave'>
@@ -255,6 +257,7 @@ window.onresize = () => {
 	canvas.width = document.body.clientWidth;
 }
 
+let exponentialFrequencies = false;
 let visualDuration = 1;
 
 let draw = () => {
@@ -294,10 +297,18 @@ requestAnimationFrame(() => draw());
 
 var divWaveList = document.querySelector('div.wave-list');
 
+let max = 10000;
+
+let fromLinearToExponentialFrequency = value => (max * Math.log(value)) / Math.log(max);
+let fromExponentialToLinearFrequency = value => Math.round(Math.pow(max, (value / max)));
+
+let toInputFrequency = value => exponentialFrequencies ? fromLinearToExponentialFrequency(value) : value;
+let fromInputFrequency = value => exponentialFrequencies ? fromExponentialToLinearFrequency(value) : value;
+
 let htmlAddWave = (wave) => {
 	wave.element = document.querySelector('template.wave').content.cloneNode(true).querySelector('div.wave');
 
-	wave.element.querySelector('input.frequency').value = wave.frequency;
+	wave.element.querySelector('input.frequency').value = toInputFrequency(wave.frequency);
 	wave.element.querySelector('input.frequency-text-box').value = wave.frequency;
 	wave.element.querySelector('input.phase').value = wave.phase;
 	wave.element.querySelector('span.phase').textContent = wave.phase + 'ϕ';
@@ -305,15 +316,15 @@ let htmlAddWave = (wave) => {
 	wave.element.querySelector('span.volume').valie = wave.volume * 100 + '%';
 
 	wave.element.querySelector('input.frequency').oninput = e => {
-		setFrequency(wave, parseFloat(e.target.value));
-		wave.element.querySelector('input.frequency-text-box').value = e.target.value;
+		setFrequency(wave, fromInputFrequency(parseFloat(e.target.value)));
+		wave.element.querySelector('input.frequency-text-box').value = fromInputFrequency(e.target.value);
 	}
 
 	wave.element.querySelector('input.frequency-text-box').oninput = e => {
 		let value = parseFloat(e.target.value);
 		if (isNaN(value) || value < 0) value = 0;
 		setFrequency(wave, value);
-		wave.element.querySelector('input.frequency').value = e.target.value;
+		wave.element.querySelector('input.frequency').value = toInputFrequency(e.target.value);
 	}
 
 	wave.element.querySelector('input.phase').oninput = e => {
@@ -382,6 +393,18 @@ document.querySelector('button.save-waves').onclick = e => {
 	const data = saveWaves();
 	const string = JSON.stringify(data);
 	prompt("Here's your wave string:", string);
+}
+
+document.querySelector('input.exponential-frequencies').onchange = e => {
+	exponentialFrequencies = e.target.checked;
+	for (let wave of waves) {
+		let inputFrequency = wave.element.querySelector('input.frequency');
+		if (exponentialFrequencies) {
+			inputFrequency.value = fromLinearToExponentialFrequency(inputFrequency.value);
+		} else {
+			inputFrequency.value = fromExponentialToLinearFrequency(inputFrequency.value);
+		}
+	}
 }
 
 </script>
