@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+
+<meta name="color-scheme" content="light dark" />
+
+<script src="JSON5.js"></script>
+
+<h1>GameMaker room sprite origin fixer</h1>
+
+<p>This tool allows you to fix broken object positions in a room when you change a sprite's origin point, such that the objects are kept in the same visual positions as before, with just the origin being somewhere else.</p>
+
+<p>Select the room .yy file that is in <code>[your project folder]/rooms/[your room name]/[your room name.yy]</code> and input it below. Type the name of the object whose sprite you modified, then type the old and new origins of the sprite of the object. Click the button to download the file and replace the original file in the same place. If GameMaker is open, a pop-up will appear, click Reload. I recommend making a backup of the original file just in case.</p>
+
+<div>
+	<label>
+		<div>Input room .yy file</div>
+		<input class="file" type="file" />
+	</label>
+</div>
+
+<div>
+	<label>Instance object name: <input class="objectName" type="text" /></label>
+</div>
+
+<div>
+	<div>Old origin:</div>
+	<label>X: <input class="originOldX" type="number" value="0"/></label>
+	<label>Y: <input class="originOldY" type="number" value="0"/></label>
+</div>
+
+<div>
+	<div>New origin:</div>
+	<label>X: <input class="originNewX" type="number" value="0"/></label>
+	<label>Y: <input class="originNewY" type="number" value="0"/></label>
+</div>
+
+<div>
+	<button class="download">Download</button>
+</div>
+
+<p><a href="https://github.com/luizeldorado/luizeldorado.github.io/tree/master/projects/gm-origin-fixer">GitHub</a></p>
+
+<script>
+
+document.querySelector(".download").onclick = () => {
+	const file = document.querySelector(".file").files[0];
+	if (!file) return;
+
+	const fr = new FileReader();
+	fr.onload = () => {
+		const room = JSON5.parse(fr.result);
+
+		let objectName = document.querySelector(".objectName").value;
+		let originOld = {x: parseFloat(document.querySelector(".originOldX").value), y: parseFloat(document.querySelector(".originOldY").value)};
+		let originNew = {x: parseFloat(document.querySelector(".originNewX").value), y: parseFloat(document.querySelector(".originNewY").value)};
+
+		room.layers.forEach(layer => {
+			if (layer.resourceType == "GMRInstanceLayer") {
+				layer.instances.forEach(instance => {
+					if (instance.objectId.name == objectName) {
+						let x = (originNew.x - originOld.x) * instance.scaleX;
+						let y = (originNew.y - originOld.y) * instance.scaleY;
+
+						let r = instance.rotation * (Math.PI / 180);
+
+						let nx = x * Math.cos(r) + y * Math.sin(r);
+						let ny = y * Math.cos(r) - x * Math.sin(r);
+
+						instance.x += nx;
+						instance.y += ny;
+					}
+				});
+			}
+		});
+
+		const blob = new Blob([JSON.stringify(room)]);
+
+		const a = document.createElement("a");
+		a.download = file.name;
+		a.href = URL.createObjectURL(blob);
+		a.click();
+	}
+
+	fr.readAsText(file);
+}
+
+</script>
