@@ -1,0 +1,103 @@
+@font-face {
+	font-family: 'Symbola';
+	src: url('hintedSymbola.ttf');
+}
+
+html {
+	background-color: black;
+	color: white;
+	font-family: 'Segoe UI', sans-serif;
+}
+
+h1 {
+	text-align: center;
+}
+
+select {
+	background: inherit;
+	color: inherit;
+	font: inherit;
+}
+
+option {
+	background-color: black;
+}
+
+textarea {
+	font: inherit;
+	background-color: inherit;
+	color: inherit;
+}
+
+.unicode-font {
+	font-family: 'Symbola', 'Segoe UI', sans-serif;
+}
+
+.wingdings-font {
+	font-family: 'Wingdings', 'Segoe UI', sans-serif;
+}
+
+.texts {
+	display: flex;
+	overflow: auto;
+	height: 200px;
+	min-height: 72px;
+	padding-bottom: 20px;
+	gap: 4pt;
+	resize: vertical;
+}
+
+.texts > div {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.texts > div > textarea {
+	min-height: 0;
+	flex: 1 1 0;
+	font-size: 24pt;
+	line-height: 1.2;
+	resize: none;
+}
+
+.keyboard {
+	display: grid;
+	max-width: 1024px;
+	margin: 0 auto;
+	grid-template-columns: repeat(16, minmax(0, 1fr));
+}
+
+.keyboard > .char {
+	padding: 0;
+	border: 1px solid rgb(64, 64, 64);
+	background-color: inherit;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+}
+
+.keyboard > .char:hover {
+	background-color: rgb(64, 64, 64);
+}
+
+.keyboard > .char > .wingdings {
+	font-size: 24pt;
+}
+
+.footer {
+	margin-top: 32px;
+	font-size: 10pt;
+}
+
+@media (width <= 720px) {
+	.keyboard {
+		grid-template-columns: repeat(8, minmax(0, 1fr));
+	}
+
+	.texts {
+		height: 400px;
+		flex-direction: column;
+	}
+}
