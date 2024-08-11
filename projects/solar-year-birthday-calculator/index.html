@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Solar year birthday calculator</title>
+
+<script src="chart.umd.min.js"></script>
+
+<style>
+body {
+	margin: 16px;
+	font-family: 'Arial', sans-serif;
+	font-size: 12pt;
+}
+h1 {
+	font-size: 1em;
+}
+.max-years {
+	width: 50px;
+}
+.info {
+	margin: 8px 0;
+}
+.birthdays {
+	table-layout: fixed;
+	border-collapse: collapse;
+}
+.birthdays th, .birthdays td {
+	border: 1px solid black;
+	padding: 4px;
+}
+</style>
+
+<h1>Solar year birthday calculator</h1>
+
+<label>Birth day and time: <input class="birth" type="datetime-local" step="1" /></label>
+<select class="timezone">
+	<option value="local">Local</option>
+	<option value="utc">UTC</option>
+</select>
+<label>Max years: <input class="max-years" type="number" step="1" min="0" value="100"/></label>
+
+<button class="calculate">Calculate</button>
+
+<div class="info"></div>
+
+<div class="chart" style="height: 300px; resize: both; overflow: hidden;"></div>
+
+<table class="birthdays">
+
+</table>
+
+<script>
+function $(q) {return document.querySelector(q);}
+
+function html(tag, attrs, contents)  {
+	const e = document.createElement(tag);
+	if (attrs) {
+		for (const [name, value] of Object.entries(attrs)) {
+			e.setAttribute(name, value);
+		}
+	}
+	if (contents) {
+		if (!Array.isArray(contents)) {
+			contents = [contents];
+		}
+		e.append(...contents);
+	}
+	return e;
+}
+
+let timezone = 'local';
+
+const formatDate = date => {
+	if (timezone == 'utc') {
+		return date.toUTCString();
+	}
+	return date.toLocaleString(undefined, {timeZoneName: "longOffset"});
+};
+
+const formatOffset = offset => {
+	const isNegative = (offset < 0);
+	offset = Math.floor(Math.abs(offset) / 1000);
+	const seconds = offset % 60;
+	offset = Math.floor(offset / 60);
+	const minutes = offset % 60;
+	offset = Math.floor(offset / 60);
+	const hours = offset;
+	return `${isNegative ? "-" : ""}${hours}h ${minutes}m ${seconds}s`;
+}
+
+const formatOffsetAsDate = (offset, birth, age) => {
+	let regularBirthday;
+	if (timezone == 'utc') {
+		regularBirthday = new Date(birth).setUTCFullYear(birth.getUTCFullYear() + age);
+	} else {
+		regularBirthday = new Date(birth).setFullYear(birth.getFullYear() + age);
+	}
+	return formatDate(new Date(regularBirthday + offset));
+}
+
+$('.calculate').onclick = () => {
+
+	let birth = $('.birth').value;
+	if (birth == "") return;
+
+	timezone = $('.timezone').value;
+
+	birth = new Date(birth + (timezone == 'utc' ? 'Z' : ''));
+
+	let msYear = (365.2425 * 24 * 60 * 60 * 1000);
+
+	let birthdays = [new Date(birth)];
+	let current = new Date(birth);
+	let now = new Date();
+
+	let maxYears = $('.max-years').valueAsNumber;
+
+	for (let i=0; i<maxYears; ++i) {
+		current = new Date(current.getTime() + msYear);
+		birthdays.push(current);
+	}
+
+	const data = birthdays.map((birthday, age) => {
+		let currentRegularBirthdayYear;
+
+		let currentRegularBirthday;
+		let currentRegularBirthdayStart;
+		let currentRegularBirthdayEnd;
+
+		if (timezone == 'utc') {
+			currentRegularBirthdayYear = age + birth.getUTCFullYear();
+			currentRegularBirthday = new Date(birth).setUTCFullYear(currentRegularBirthdayYear);
+			currentRegularBirthdayStart = new Date(currentRegularBirthday).setUTCHours(0, 0, 0, 0) - currentRegularBirthday;
+			currentRegularBirthdayEnd = new Date(currentRegularBirthday).setUTCHours(24, 0, 0, 0) - currentRegularBirthday;
+		} else {
+			currentRegularBirthdayYear = age + birth.getFullYear();
+			currentRegularBirthday = new Date(birth).setFullYear(currentRegularBirthdayYear);
+			currentRegularBirthdayStart = new Date(currentRegularBirthday).setHours(0, 0, 0, 0) - currentRegularBirthday;
+			currentRegularBirthdayEnd = new Date(currentRegularBirthday).setHours(24, 0, 0, 0) - currentRegularBirthday;
+		}
+
+		return {
+			age: age,
+			year: currentRegularBirthdayYear,
+			birthday: birthday,
+			regularBirthdayStart: currentRegularBirthdayStart,
+			regularBirthdayEnd: currentRegularBirthdayEnd,
+			offset: (birthday - currentRegularBirthday),
+		};
+	});
+
+	let nextBirthday = data.find(x => x.birthday >= Date.now())?.birthday;
+
+	$('.info').replaceChildren();
+	$('.info').append(html('div', {}, `${formatDate(birth)} - ${timezone == 'utc' ? 'UTC' : Intl.DateTimeFormat().resolvedOptions().timeZone}`));
+	$('.info').append(html('div', {}, `Your next real birthday: ${nextBirthday != null ? formatDate(nextBirthday) : 'Not in data, increase max years'}`))
+
+	$('.birthdays').replaceChildren();
+
+	$('.birthdays').append(html('tr', {}, [
+		html('th', {}, `Age (years)`),
+		html('th', {}, `Real birthday`),
+		html('th', {}, `Offset from birth time`),
+	]))
+
+	data.forEach(({year, birthday, offset}, age) => {
+		$('.birthdays').append(html('tr', {}, [
+			html('td', {}, `${age}`),
+			html('td', {}, `${formatDate(birthday)}`),
+			html('td', {}, `${formatOffset(offset)}`),
+		]))
+	})
+
+	const chart = document.querySelector('.chart');
+	chart.replaceChildren();
+	const canvas = document.createElement('canvas');
+	chart.append(canvas);
+
+	const realChart = new Chart(canvas, {
+		type: 'line',
+		data: {
+			labels: data.map(x => x.age),
+			datasets: [
+				{
+					label: 'Real birthday',
+					data: data.map(x => x.offset),
+					borderWidth: 1,
+				},
+				{
+					label: 'Birth day start',
+					data: data.map(x => x.regularBirthdayStart),
+					borderWidth: 1,
+					pointStyle: false,
+				},
+				{
+					label: 'Birth day end',
+					data: data.map(x => x.regularBirthdayEnd),
+					borderWidth: 1,
+					pointStyle: false,
+				}
+			]
+		},
+		options: {
+			// animation: false,
+			maintainAspectRatio: false,
+			plugins: {
+				legend: {
+					// display: false
+				},
+				tooltip: {
+					callbacks: {
+						label: (context) => {
+							return `${context.dataset.label}: ${formatOffset(context.parsed.y)} | ${formatOffsetAsDate(context.parsed.y, birth, context.dataIndex)}`;
+						},
+					}
+				},
+			},
+			scales: {
+				y: {
+					title: {
+						display: true,
+						text: "offset from birth timme"
+					},
+					beginAtZero: true,
+					// min: -2,
+					// max: 2,
+					grid: {
+						lineWidth: ({tick}) => tick.value == 0 ? 4 : 1,
+					},
+					ticks: {
+						callback: (value, index, ticks) => formatOffset(value),
+						stepSize: 1000*60*60*6,
+					},
+					// stacked: 'single',
+				}
+			},
+		}
+	});
+
+	// const top = Math.max(Math.abs(realChart.scales.y.min), Math.abs(realChart.scales.y.max));
+	// realChart.options.scales.y.min = -top;
+	// realChart.options.scales.y.max = top;
+	// realChart.update();
+}
+
+// Only if browser didn't fill it from previous session
+if ($('.birth').value == "") {
+	// YYYY-MM-DDThh:mm
+	let now = new Date();
+	let nowString = `${now.getFullYear().toString().padStart(4, '0')}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+	$('.birth').value = nowString;
+}
+
+</script>
